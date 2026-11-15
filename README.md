@@ -51,11 +51,13 @@ package versions: any pair that agree on it can share a cache. A release that
 changes the file format bumps `schema_version`, and both packages need a
 release that reads it.
 
-To release Python:
+To release Python, push a tag; `.github/workflows/publish.yml` runs the tests,
+builds, checks the built version matches the tag, and uploads to PyPI through
+Trusted Publishing (no token):
 
 ```sh
-git tag python-v0.0.4
-cd python && rm -rf dist && uv build && uvx twine upload dist/*
+git tag -a python-v0.0.4 -m "lightspeed (Python) 0.0.4"
+git push origin python-v0.0.4
 ```
 
 To release Haskell: set `version:` in `haskell/lightspeed.cabal`, commit, then

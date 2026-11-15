@@ -1,0 +1,65 @@
+name: Publish Python package to PyPI
+
+# A pushed python-v* tag uploads the Python sdist and wheel to PyPI through
+# Trusted Publishing: PyPI accepts this workflow's OIDC token in place of an
+# API token, so there is no secret to store. The workflow file name and the
+# environment name below are what the publisher on PyPI is registered
+# against; change either and the upload is refused.
+#
+# Only python-v* tags publish. The Haskell package (haskell-v* tags) is
+# released separately, by hand; see the README.
+#
+# There is deliberately no manual trigger. A release on PyPI cannot be
+# replaced, so the only way to publish is the tag that names the version.
+
+on:
+  push:
+    tags:
+      - "python-v*"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    # A job-level permissions block replaces the workflow's, so contents has
+    # to be repeated here or the checkout cannot read the repository.
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: python
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # setuptools-scm reads the version from the tags.
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v10.1.0
+
+      - name: Run the tests
+        run: uv run pytest -q
+
+      - name: Build the sdist and wheel
+        run: uv build
+
+      # The version comes from the tag, so a mismatch here means the tag is
+      # not on a clean release commit. Better to stop than to upload a
+      # 0.0.2.dev0 that can never be removed.
+      - name: Check the built version matches the tag
+        run: |
+          expected="lightspeed-${GITHUB_REF_NAME#python-v}"
+          ls dist
+          for file in dist/*; do
+            case "$(basename "$file")" in
+              "$expected".tar.gz | "$expected"-py3-none-any.whl) ;;
+              *) echo "::error::$file does not match tag $GITHUB_REF_NAME"; exit 1 ;;
+            esac
+          done
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: python/dist/

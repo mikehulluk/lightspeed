@@ -36,7 +36,10 @@ dependencies = [
 [dependency-groups]
 dev = ["pytest>=8.0", "build>=1.2", "twine>=5.0"]
 
-# [project.urls] goes here once the repository is public.
+[project.urls]
+Homepage = "https://github.com/mikehulluk/lightspeed"
+Source = "https://github.com/mikehulluk/lightspeed"
+Issues = "https://github.com/mikehulluk/lightspeed/issues"
 
 [tool.setuptools_scm]
 # The git repository is the directory above this one.
