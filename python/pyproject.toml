@@ -3,7 +3,10 @@ requires = ["setuptools>=77", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "lightspeed"
+# The PyPI name. "lightspeed" is refused as too close to the existing
+# light-speed project, so the distribution is lightspeed-series; the import
+# name stays lightspeed.
+name = "lightspeed-series"
 # The version is the latest python-v* git tag (python-v0.0.1 -> 0.0.1);
 # commits after it get a .devN suffix. The Haskell package is tagged
 # haskell-v* and released on its own. See [tool.setuptools_scm].

@@ -7,7 +7,7 @@ This repository holds two implementations of the same library:
 
 | Directory | Language | Package |
 |---|---|---|
-| [`python/`](python/) | Python | `lightspeed` on PyPI |
+| [`python/`](python/) | Python | `lightspeed-series` on PyPI (`import lightspeed`) |
 | [`haskell/`](haskell/) | Haskell | `lightspeed` (cabal) - not yet implemented |
 
 Both read and write the same HDF5 cache file format: a cache built by one is

@@ -15,8 +15,10 @@ same data is immediate, and several processes can share one cache directory.
 ## Install
 
 ```sh
-pip install lightspeed
+pip install lightspeed-series
 ```
+
+The PyPI name is `lightspeed-series`; the import name is `lightspeed`.
 
 ## Use
 

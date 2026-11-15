@@ -51,7 +51,7 @@ jobs:
       # 0.0.2.dev0 that can never be removed.
       - name: Check the built version matches the tag
         run: |
-          expected="lightspeed-${GITHUB_REF_NAME#python-v}"
+          expected="lightspeed_series-${GITHUB_REF_NAME#python-v}"
           ls dist
           for file in dist/*; do
             case "$(basename "$file")" in

@@ -1111,7 +1111,7 @@ wheels = [
 ]
 
 [[package]]
-name = "lightspeed"
+name = "lightspeed-series"
 source = { editable = "." }
 dependencies = [
     { name = "filelock", version = "4.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
