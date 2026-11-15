@@ -264,18 +264,18 @@ def test_installing_a_series_does_not_requery_the_ones_already_there(tmp_path: P
     already on them - and every panel sharing them. They are being told the
     range they are already drawn at, so there is nothing for them to do.
     """
-    from lightspeed import mpl as mpl_module
+    from lightspeed import view as view_module
 
     spec, handle = _build_handle(tmp_path)
 
     queries = {"count": 0}
-    original = mpl_module.query_range
+    original = view_module.query_range
 
     def counting(*args, **kwargs):
         queries["count"] += 1
         return original(*args, **kwargs)
 
-    monkeypatch.setattr(mpl_module, "query_range", counting)
+    monkeypatch.setattr(view_module, "query_range", counting)
 
     figure = plt.figure()
     top, bottom = figure.subplots(2, 1, sharex=True)

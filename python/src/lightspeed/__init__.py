@@ -2,7 +2,16 @@
 
 A series is reduced once into min/max level-of-detail pyramids, cached in
 an HDF5 file, and queried at the resolution the view needs.
+
+The core - building and querying caches, and `lightspeed.view`, which says
+what to draw for a view - needs only numpy and h5py, and is what any
+plotting tool builds on. Drawing with matplotlib is `lightspeed.mpl`, which
+needs the `mpl` extra (`pip install "lightspeed-series[mpl]"`); its
+`ZoomSync`, `plot_envelope` and `update_envelope_artists` can also be named
+from here, and matplotlib is imported only when one of them is.
 """
+
+from typing import Any
 
 from .arraysource import ArraySource, HdfArraySource, SourceIdentity
 from .cache import CacheHandle, SourceSpec, build_or_get_cache, close_cache, open_existing_cache
@@ -11,33 +20,54 @@ from .constants import DEFAULT_CHUNK_SIZE
 from .exceptions import (
     CacheCorruptError,
     InvalidSourceSpecError,
-    NonMonotonicXError,
     LightspeedError,
+    NonMonotonicXError,
     UnsupportedQueryError,
 )
-from .mpl import ZoomSync, plot_envelope, update_envelope_artists
 from .query import QueryResult, full_x_range, query_range
+from .status import StatusMap
+from .view import Frame, MissingStyle, SeriesView
 
 __all__ = [
     "ArraySource",
     "CacheCorruptError",
     "CacheHandle",
     "DEFAULT_CHUNK_SIZE",
+    "Frame",
     "HdfArraySource",
     "InvalidSourceSpecError",
-    "NonMonotonicXError",
     "LightspeedError",
+    "MissingStyle",
+    "NonMonotonicXError",
     "QueryResult",
+    "SeriesView",
     "SourceIdentity",
     "SourceSpec",
+    "StatusMap",
     "UnsupportedQueryError",
-    "ZoomSync",
     "build_or_get_cache",
     "close_cache",
     "full_x_range",
     "open_existing_cache",
-    "plot_envelope",
     "query_range",
     "resolve_cache_dir",
-    "update_envelope_artists",
 ]
+
+# Named here for convenience, but defined in lightspeed.mpl, which imports
+# matplotlib; loading them on first use keeps `import lightspeed` free of it.
+_MPL_NAMES = ("ZoomSync", "plot_envelope", "update_envelope_artists")
+
+
+def __getattr__(name: str) -> Any:
+    if name in _MPL_NAMES:
+        try:
+            from . import mpl
+        except ModuleNotFoundError as error:
+            if error.name is None or not error.name.startswith("matplotlib"):
+                raise
+            raise ImportError(
+                f"lightspeed.{name} draws with matplotlib, which is not installed; "
+                'install it with: pip install "lightspeed-series[mpl]"'
+            ) from error
+        return getattr(mpl, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -29,15 +29,20 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Visualization",
     "Typing :: Typed",
 ]
+# The core needs no plotting library: building and querying caches, and
+# lightspeed.view, which any plotting tool draws from. Drawing with
+# matplotlib (lightspeed.mpl) is the `mpl` extra.
 dependencies = [
     "filelock>=3.12",
     "h5py>=3.10",
-    "matplotlib>=3.8",
     "numpy>=1.26",
 ]
 
+[project.optional-dependencies]
+mpl = ["matplotlib>=3.8"]
+
 [dependency-groups]
-dev = ["pytest>=8.0", "build>=1.2", "twine>=5.0"]
+dev = ["pytest>=8.0", "build>=1.2", "twine>=5.0", "matplotlib>=3.8"]
 
 [project.urls]
 Homepage = "https://github.com/mikehulluk/lightspeed"
