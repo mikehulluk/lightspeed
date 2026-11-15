@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=77", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lightspeed"
+# The version is the latest python-v* git tag (python-v0.0.1 -> 0.0.1);
+# commits after it get a .devN suffix. The Haskell package is tagged
+# haskell-v* and released on its own. See [tool.setuptools_scm].
+dynamic = ["version"]
+description = "Fast, zoomable plots of very large series, from min/max level-of-detail pyramids cached in HDF5."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Mike Hull", email = "mikehulluk@gmail.com" }]
+keywords = ["time series", "large data", "plotting", "level of detail", "hdf5", "matplotlib", "downsampling"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Typing :: Typed",
+]
+dependencies = [
+    "filelock>=3.12",
+    "h5py>=3.10",
+    "matplotlib>=3.8",
+    "numpy>=1.26",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.0", "build>=1.2", "twine>=5.0"]
+
+# [project.urls] goes here once the repository is public.
+
+[tool.setuptools_scm]
+# The git repository is the directory above this one.
+root = ".."
+fallback_version = "0.0.0"
+# Only python-v* tags count, so a Haskell release does not move this version.
+tag_regex = "^python-v(?P<version>[0-9]+(?:\\.[0-9]+)*(?:[-.+].*)?)$"
+
+[tool.setuptools_scm.scm.git]
+describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "python-v*"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+lightspeed = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
