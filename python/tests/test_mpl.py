@@ -335,3 +335,56 @@ def test_panels_sharing_x_open_on_every_series_in_them(tmp_path: Path) -> None:
         plt.close(fig)
         for handle in handles:
             close_cache(handle)
+
+
+def test_plot_series_builds_the_cache_and_draws_a_labelled_envelope(tmp_path: Path) -> None:
+    from lightspeed import write_series
+    from lightspeed.mpl import plot_series
+
+    spec = write_series(tmp_path / "s.h5", np.sin(np.linspace(0, 50, 20_000)))
+    fig, ax = plt.subplots()
+    try:
+        sync = plot_series(ax, spec, label="signal", color="C3", cache_dir=tmp_path / "cache")
+        assert isinstance(sync, ZoomSync)
+        line_min, line_max = sync.lines
+        assert line_min.get_label() == "signal"
+        handles, labels = ax.get_legend_handles_labels()
+        assert labels == ["signal"]
+        # Envelope, not 20k raw points.
+        assert len(line_min.get_xdata()) < 5000
+    finally:
+        sync.disconnect()
+        plt.close(fig)
+
+
+class _Recording:
+    """An Axes-like object that takes over plot_series."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[object, dict]] = []
+
+    def __lightspeed_plot_series__(self, spec, **options):
+        self.calls.append((spec, options))
+        return "drawn by the hook"
+
+
+def test_plot_series_hands_the_series_to_an_axes_that_draws_it_itself(tmp_path: Path) -> None:
+    from lightspeed import write_series
+    from lightspeed.mpl import plot_series
+
+    spec = write_series(tmp_path / "s.h5", np.arange(10.0))
+    target = _Recording()
+    assert plot_series(target, spec, label="x", fill_alpha=0.3) == "drawn by the hook"
+    [(given_spec, options)] = target.calls
+    assert given_spec is spec
+    assert options["label"] == "x" and options["fill_alpha"] == 0.3
+    # Nothing was built: the hook decides.
+    assert not (tmp_path / "cache").exists()
+
+
+def test_zoomsync_refuses_an_axes_with_the_hook(tmp_path: Path) -> None:
+    import pytest
+
+    spec, handle = _build_handle(tmp_path)
+    with pytest.raises(TypeError, match="plot_series"):
+        ZoomSync(_Recording(), handle, spec)  # type: ignore[arg-type]

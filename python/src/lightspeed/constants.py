@@ -24,3 +24,8 @@ def aligned_stream_block(stream_block: int, chunk_size: int) -> int:
     if stream_block < chunk_size:
         return chunk_size
     return (stream_block // chunk_size) * chunk_size
+
+# The method an Axes-like object defines to take over `lightspeed.mpl.plot_series`
+# for itself (as numpy's `__array_function__` lets an array type take over numpy
+# functions). See `plot_series`.
+PLOT_SERIES_HOOK = "__lightspeed_plot_series__"

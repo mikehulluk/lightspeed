@@ -16,7 +16,8 @@ from matplotlib.collections import PolyCollection
 from matplotlib.lines import Line2D
 from matplotlib.text import Text
 
-from .cache import CacheHandle, SourceSpec
+from .cache import CacheHandle, SourceSpec, build_or_get_cache
+from .constants import DEFAULT_CHUNK_SIZE, PLOT_SERIES_HOOK
 from .query import QueryResult
 from .timing import TimingProbeLike
 from .view import (
@@ -56,6 +57,7 @@ __all__ = [
     "missing_kind_marks",
     "missing_sample_marks",
     "plot_envelope",
+    "plot_series",
     "series_x_union",
     "update_envelope_artists",
 ]
@@ -166,6 +168,7 @@ def plot_envelope(
     fill_kwargs: dict | None = None,
     missing_marker: str = DEFAULT_MISSING_MARKER,
     missing_styles: dict[int, MissingStyle] | None = None,
+    label: str | None = None,
 ) -> tuple[Line2D, Line2D, PolyCollection, MissingMarks]:
     """Draws a min/max envelope: two edge lines and the band between them,
     plus the marks for missing samples (see `MissingMarks`).
@@ -174,6 +177,8 @@ def plot_envelope(
     colour too; the band is opaque unless `fill_alpha` says otherwise. With no
     colour given at all the series takes one step of the axes' colour cycle,
     so all three artists read as a single series rather than one colour per line.
+    `label` names the series in a legend: one entry, on the min line, which
+    is the one shown at every zoom.
     """
     frame = result if isinstance(result, Frame) else Frame.of(result)
     line_kwargs = dict(line_kwargs or {})
@@ -189,9 +194,12 @@ def plot_envelope(
     fill_kwargs.setdefault("alpha", DEFAULT_FILL_ALPHA)
     fill_kwargs.setdefault("linewidth", 0.0)
 
-    (line_min,) = ax.plot(frame.x, frame.y_min, **line_kwargs)
-    (line_max,) = ax.plot(frame.x, frame.y_max, **line_kwargs)
-    fill = ax.fill_between(frame.x, frame.y_min, frame.y_max, **fill_kwargs)
+    line_label = line_kwargs.pop("label", None) if label is None else label
+    line_kwargs.pop("label", None)
+    fill_kwargs.pop("label", None)
+    (line_min,) = ax.plot(frame.x, frame.y_min, label="_nolegend_" if line_label is None else line_label, **line_kwargs)
+    (line_max,) = ax.plot(frame.x, frame.y_max, label="_nolegend_", **line_kwargs)
+    fill = ax.fill_between(frame.x, frame.y_min, frame.y_max, label="_nolegend_", **fill_kwargs)
     marks = MissingMarks(
         ax, kinds_present=kinds_present(frame.result), styles=missing_styles, enabled=missing_marker != "none"
     )
@@ -314,6 +322,8 @@ class ZoomSync:
     # How each kind of missing sample is marked, by kind (status.py); kinds
     # not named here take DEFAULT_MISSING_STYLES, else a red cross.
     missing_styles: dict[int, MissingStyle] | None = None
+    # The series' name in a legend; None leaves it out.
+    label: str | None = None
 
     _view: SeriesView = field(init=False, repr=False)
     _line_min: Line2D | None = field(default=None, init=False, repr=False)
@@ -324,6 +334,11 @@ class ZoomSync:
     _cid: int | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:
+        if getattr(self.ax, PLOT_SERIES_HOOK, None) is not None:
+            raise TypeError(
+                f"{type(self.ax).__name__} draws large series itself: plot this one with "
+                "lightspeed.mpl.plot_series(ax, spec, ...), which hands it over, rather than ZoomSync"
+            )
         self._view = SeriesView(self.handle, self.spec, target_buckets=self.target_buckets, timing=self.timing)
         self._install_initial_artists()
         self._connect()
@@ -341,7 +356,7 @@ class ZoomSync:
         assert frame is not None
         self._line_min, self._line_max, self._fill, self._marks = plot_envelope(
             self.ax, frame, color=self.color, fill_color=self.fill_color, fill_alpha=self.fill_alpha,
-            missing_marker=self.missing_marker, missing_styles=self.missing_styles,
+            missing_marker=self.missing_marker, missing_styles=self.missing_styles, label=self.label,
         )
         if self.indicator:
             self._indicator = add_indicator(self.ax, self._line_min.get_color(), self.indicator_font)
@@ -393,7 +408,71 @@ class ZoomSync:
     def _estimate_target_buckets(self) -> int:
         return self._view.buckets_for(self._width_px())
 
+    @property
+    def lines(self) -> tuple[Line2D, Line2D]:
+        """The envelope's (min, max) edge lines. Zoomed in to raw samples,
+        the min line is the data line and the max line is hidden."""
+        assert self._line_min is not None and self._line_max is not None
+        return self._line_min, self._line_max
+
+    @property
+    def fill(self) -> PolyCollection:
+        """The band between the edge lines (hidden when zoomed to raw samples)."""
+        assert self._fill is not None
+        return self._fill
+
     def disconnect(self) -> None:
         if self._cid is not None:
             self.ax.callbacks.disconnect(self._cid)
             self._cid = None
+
+
+def plot_series(
+    ax: Any,
+    spec: SourceSpec,
+    *,
+    label: str | None = None,
+    color: str | None = None,
+    fill_color: str | None = None,
+    fill_alpha: float | None = None,
+    target_buckets: int | None = None,
+    missing_marker: str = DEFAULT_MISSING_MARKER,
+    missing_styles: dict[int, MissingStyle] | None = None,
+    indicator: bool = True,
+    indicator_font: Any | None = None,
+    cache_dir: Any = None,
+    chunk_size: int = DEFAULT_CHUNK_SIZE,
+    timing: TimingProbeLike | None = None,
+    progress: Callable[[int, int], None] | None = None,
+    on_query: Callable[[QueryResult], None] | None = None,
+) -> Any:
+    """Plots the series `spec` reads on `ax`, kept in step with its zoom: the
+    one call from a source to a zoomable envelope.
+
+    Builds the series' cache if there is none yet (`cache_dir`, `chunk_size`,
+    `progress` as `build_or_get_cache` takes them) and returns the
+    `ZoomSync` drawing it; the other arguments are `ZoomSync`'s.
+
+    An `ax` that defines `__lightspeed_plot_series__` (the name is
+    `lightspeed.constants.PLOT_SERIES_HOOK`) draws the series itself: it is
+    called with `spec` and every keyword argument above, and what it
+    returns is returned. That lets an Axes-like object - one recording what
+    is drawn on it, say - take in a script that only ever calls
+    `plot_series`, without lightspeed knowing about it.
+    """
+
+    options = dict(
+        label=label, color=color, fill_color=fill_color, fill_alpha=fill_alpha, target_buckets=target_buckets,
+        missing_marker=missing_marker, missing_styles=missing_styles, indicator=indicator,
+        indicator_font=indicator_font, cache_dir=cache_dir, chunk_size=chunk_size, timing=timing,
+        progress=progress, on_query=on_query,
+    )
+    hook = getattr(ax, PLOT_SERIES_HOOK, None)
+    if hook is not None:
+        return hook(spec, **options)
+    handle = build_or_get_cache(spec, cache_dir=cache_dir, chunk_size=chunk_size, timing=timing, progress=progress)
+    return ZoomSync(
+        ax, handle, spec, target_buckets=target_buckets, on_query=on_query, timing=timing, color=color,
+        fill_color=fill_color, fill_alpha=fill_alpha, indicator=indicator, indicator_font=indicator_font,
+        missing_marker=missing_marker, missing_styles=missing_styles, label=label,
+    )
