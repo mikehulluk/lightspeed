@@ -11,8 +11,9 @@ This repository holds two implementations of the same library:
 | [`haskell/`](haskell/) | Haskell | `lightspeed` (cabal) - not yet implemented |
 
 Both read and write the same HDF5 cache file format: a cache built by one is
-read by the other. The format is the contract between them, so a change to
-it is made in both implementations, and its `schema_version` bumped, together.
+read by the other. The format is the contract between them, written down in
+[doc/cache-format.md](doc/cache-format.md), so a change to it is made in both
+implementations, and its `schema_version` bumped, together.
 
 ## Planned
 
